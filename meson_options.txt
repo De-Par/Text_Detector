@@ -1,0 +1,23 @@
+option('onnxruntime_dir', type : 'string', value : '',
+  description : 'Root prefix of ONNX Runtime (has include/ and lib/). Example: /usr/local or $(brew --prefix onnxruntime)')
+
+option('cpu_opt', type : 'string', value : 'native',
+  description : 'CPU tuning: native | generic | e.g. x86-64-v3, x86-64-v2, armv8.2-a+simd+dotprod')
+
+option('fast_math', type : 'boolean', value : true,
+  description : 'Enable fast-math flags (faster, relaxed IEEE)')
+
+option('thinlto', type : 'boolean', value : true,
+  description : 'Use ThinLTO with Clang in addition to b_lto=true')
+
+option('static_ort', type : 'boolean', value : false,
+  description : 'Prefer static ONNX Runtime if available (requires libonnxruntime.a)')
+
+option('use_openmp', type : 'boolean', value : true,
+  description : 'Enable OpenMP for tile-level parallelism')
+
+option('install_rpath_extra', type : 'string', value : '',
+  description : 'Extra install rpath entries (colon-separated), appended to platform defaults')
+
+option('strict_warnings', type : 'boolean', value : false,
+  description : 'Turn on extra warnings (-Wall -Wextra -Wpedantic)')
