@@ -119,8 +119,8 @@ if not ort_dep.found()
   ort_lib_dir_for_rpath = join_paths(ort_root, 'lib')
   ort_dep = cpp.find_library('onnxruntime', dirs : [ort_lib_dir_for_rpath], required : true)
 else
-  # If CMake package is found, we still set common Homebrew rpaths on macOS below.
-  # (Exact lib dir from the CMake dep may be non-trivial to query; brew path works well.)
+  # If CMake package is found, we still set common Homebrew rpaths on macOS below
+  # Exact lib dir from the CMake dep may be non-trivial to query; brew path works well
 endif
 
 # OpenMP (tile-level parallelism)
@@ -159,14 +159,26 @@ if rpaths.length() > 0
 endif
 
 # ---- Sources ----
-srcs = files('main.cpp')   # change if your entry file differs
+srcs = [
+    'src/main.cpp',
+    'src/cli.cpp',
+    'src/dbnet.cpp',
+    'src/geometry.cpp',
+    'src/omp_config.cpp',
+    'src/tiling.cpp',
+    'src/nms.cpp',
+    'src/drawing.cpp',
+    'src/run_single.cpp',
+    'src/run_bench.cpp'
+]
 
 # ---- Target ----
-deps = [opencv_dep, ort_dep] + openmp_dep
+deps = [opencv_dep, ort_dep, openmp_dep] 
+inc_dirs = [include_directories('src'), ort_inc]
 
 exe = executable('text_det',
   srcs,
-  include_directories : ort_inc,
+  include_directories : inc_dirs,
   cpp_args  : cxx_args,
   link_args : ld_args,
   dependencies : deps,
