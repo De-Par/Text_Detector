@@ -75,7 +75,7 @@ File → OpenCV decode (BGR8)
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential ninja-build meson pkg-config libopencv-dev python3 python3-pip libomp-dev 
+sudo apt-get install -y build-essential ninja-build meson cmake cmake-data pkg-config libopencv-dev python3 python3-pip libomp-dev 
 ```
 
 #### Install ONNX Runtime:
@@ -91,7 +91,8 @@ cd onnxruntime
 After build finishes, copy headers+libs to /usr/local (adjust paths if needed):
 ```bash
 sudo cp -r include/onnxruntime /usr/local/include/
-sudo cp build/Linux/Release/libonnxruntime.so* /usr/local/lib/
+sudo cp -d build/Linux/Release/libonnxruntime.so* /usr/local/lib/
+sudo cp -d build/Linux/Release/libonnxruntime_providers_shared.so /usr/local/lib/
 sudo ldconfig
 ```
 
@@ -304,16 +305,16 @@ Measure end-to-end latency with warmup and tail-latency percentiles:
 
 ## Troubleshooting
 
-**`onnxruntime_cxx_api.h: No such file or directory`**  
+- **`onnxruntime_cxx_api.h: No such file or directory`**  
 Make sure ONNX Runtime is installed and headers are visible to Meson (e.g., `/usr/local/include` on Linux, `/opt/homebrew/opt/onnxruntime/include` on macOS).
 
-**`Unexpected output shape`**  
+- **`Unexpected output shape`**  
 This tool supports `[1,1,H,W]`, `[1,H,W,1]`, `[1,H,W]`, `[H,W]`. If your model differs, verify your export and the final layers. If outputs are **logits** (not in [0,1]), pass `--apply_sigmoid 1`.
 
-**Performance flatlines when increasing threads**  
+- **Performance flatlines when increasing threads**  
 Likely oversubscription. Lower `--threads` (ORT) to 1–2; increase `--tile_omp`; pin threads: `--omp_places cores --omp_bind close`.
 
-**Boxes are weak or too many false positives**  
+- **Boxes are weak or too many false positives**  
 Tune `--bin_thresh`, `--box_thresh`, `--unclip`. If model lacks final sigmoid, set `--apply_sigmoid 1`.
 
 

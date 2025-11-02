@@ -1,4 +1,4 @@
-option('onnxruntime_dir', type : 'string', value : '',
+option('onnxruntime_dir', type : 'string', value : '/usr/local',
   description : 'Root prefix of ONNX Runtime (has include/ and lib/). Example: /usr/local or $(brew --prefix onnxruntime)')
 
 option('cpu_opt', type : 'string', value : 'native',
