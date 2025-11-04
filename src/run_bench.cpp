@@ -32,7 +32,7 @@ static double percentile(std::vector<double> v, double p)
     return v[k];
 }
 
-int run_bench(const CliOptions &opt)
+int run_bench(const Options &opt)
 {
     // sanity
     if (opt.model_path.empty() || opt.image_path.empty())

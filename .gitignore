@@ -1,5 +1,7 @@
 .vscode
 .idea
+.DS_Store
+.build
 
 ### C++ ###
 # Prerequisites

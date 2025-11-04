@@ -7,7 +7,7 @@
 [![Meson + Ninja](https://img.shields.io/badge/build-Meson%20%2B%20Ninja-ff69b4.svg)](https://mesonbuild.com/)
 [![macOS / Linux](https://img.shields.io/badge/OS-macOS%20%7C%20Linux-lightgrey.svg)](#)
 
-![plot](img/demo.png)
+![plot](figures/demo.png)
 
 A fast, **CPU-only** text detector powered by ONNX Runtime. It supports **tiled inference**, **polygon NMS**, **IOBinding** (to eliminate per-frame allocations), and a **benchmark mode** with p50/p90/p99 latency reporting. Designed for production: clean code, robust shape handling (NCHW/NHWC/2D/3D) and safe defaults for multi-core servers. Output contains image with quadrilateral boxes + 4 points *(x, y)* of each box printed to **stdout**.
 
@@ -157,13 +157,16 @@ If you prefer **MMDeploy**, you can export via MMDeploy’s ONNX pipeline as wel
 
 ### 2) PaddleOCR ONNX
 
-There are pre-converted **PaddleOCR** detectors on the Hugging Face Hub: [deepghs/paddleocr](https://huggingface.co/deepghs/paddleocr/tree/main), including lightweight **PP-OCR mobile** variants. Typical file names include:
+There are pre-converted **PaddleOCR** detectors on the Hugging Face Hub: [deepghs/paddleocr](https://huggingface.co/deepghs/paddleocr/tree/main), including lightweight **PP-OCR mobile** variants. Typical model names you can find in `models` directory of project:
 
-- `ch_PP-OCRv3_det_infer.onnx`
-- `en_PP-OCRv3_det_infer.onnx`
-- `ch_ppocr_mobile_v2.0_det_infer.onnx`
-- `ch_ppocr_mobile_slim_v2_det.onnx`
-- `...`
+- `ch_PP-OCRv2_det.onnx`
+- `ch_PP-OCRv3_det.onnx`
+- `ch_PP-OCRv4_det.onnx`
+- `ch_PP-OCRv4_server_det.onnx`
+- `ch_ppocr_mobile_slim_v2.0_det.onnx`
+- `ch_ppocr_mobile_v2.0_det.onnx`
+- `ch_ppocr_server_v2.0_det.onnx`
+- `en_PP-OCRv3_det.onnx`
 
 **Important compatibility notes**
 
@@ -173,17 +176,10 @@ There are pre-converted **PaddleOCR** detectors on the Hugging Face Hub: [deepgh
 - **Input sizes** are typically dynamic with the constraint **H,W % 32 == 0**. Use `--fixed_hw` (e.g., `640x640`) or `--side` to meet that requirement.
 - If you see `Unexpected output shape`, your detector might output a different tensor layout. This app handles `[1,1,H,W]`, `[1,H,W,1]`, `[1,H,W]`, and `[H,W]`. If yours differs, inspect the model head or adjust the post-processing accordingly.
 
-**Quick start with a PaddleOCR ONNX**
-
-```bash
-./text_det --model det.onnx --image input.png --apply_sigmoid 1 --fixed_hw 640x640 --threads 1
-```
-
 > 💡 If you switch to Paddle normalization, update mean / std in code accordingly.
 
 > 💡 For highest stability in batch/production (hundreds of images): combine **IOBinding** (`--bind_io 1`) with a **fixed input size** (`--fixed_hw WxH`) and keep ORT threads small (`--threads 1–2`) while scaling tiles via OpenMP (`--tile_omp`).
 
----
 
 ## Command-line Options
 
@@ -221,12 +217,12 @@ x0,y0 x1,y1 x2,y2 x3,y3
 
 **Basic (no tiling):**
 ```bash
-./text_det --model det.onnx --image input.png --threads 4 --side 640 --bin_thresh 0.3 --box_thresh 0.6
+./build/text_det --model ./models/ch_PP-OCRv4_det.onnx --image ./images/test.jpg --threads 4 --side 640 --bin_thresh 0.3 --box_thresh 0.6
 ```
 
 **Model that outputs logits (no final Sigmoid):**
 ```bash
-./text_det --model det.onnx --image input.png --threads 4 --apply_sigmoid 1 --bin_thresh 0.3 --box_thresh 0.3
+./build/text_det --model ./models/ch_PP-OCRv4_det.onnx --image ./images/test.jpg --threads 4 --apply_sigmoid 1 --bin_thresh 0.3 --box_thresh 0.3
 ```
 
 
@@ -234,19 +230,19 @@ x0,y0 x1,y1 x2,y2 x3,y3
 
 **Tiling on a big server (e.g., 96 cores)**
 ```bash
-./text_det --model det.onnx --image input.png --tiles 3x3 --tile_overlap 0.15 --nms_iou 0.3 --threads 2 --tile_omp 8 --omp_places cores --omp_bind close
+./build/text_det --model ./models/ch_PP-OCRv4_det.onnx --image ./images/test.jpg --tiles 3x3 --tile_overlap 0.15 --nms_iou 0.3 --threads 2 --tile_omp 8 --omp_places cores --omp_bind close
 ```
 - Keep **ORT intra-op small** (`--threads 1–2`).
 - Use **lots of OpenMP threads for tiles** (`--tile_omp`).
 
 **IOBinding + fixed size (best reuse, hundreds of images)**
 ```bash
-./text_det --model det.onnx --image input.png --bind_io 1 --fixed_hw 640x640 --threads 4
+./build/text_det --model ./models/ch_PP-OCRv4_det.onnx --image ./images/test.jpg --bind_io 1 --fixed_hw 640x640 --threads 4
 ```
 
 **Tiling + IOBinding + fixed size (stable latency under load)**
 ```bash
-./text_det --model det.onnx --image input.png --tiles 3x3 --tile_overlap 0.15 --nms_iou 0.3 --bind_io 1 --fixed_hw 640x640 --threads 2 --tile_omp 8 --omp_places cores --omp_bind close
+./build/text_det --model ./models/ch_PP-OCRv4_det.onnx --image ./images/test.jpg --tiles 3x3 --tile_overlap 0.15 --nms_iou 0.3 --bind_io 1 --fixed_hw 640x640 --threads 2 --tile_omp 8 --omp_places cores --omp_bind close
 ```
 
 
@@ -270,7 +266,7 @@ x0,y0 x1,y1 x2,y2 x3,y3
 
 Measure end-to-end latency with warmup and tail-latency percentiles:
 ```bash
-./text_det --model det.onnx --image input.png --tiles 3x3 --tile_overlap 0.15 --nms_iou 0.3 --bind_io 1 --fixed_hw 640x640 --threads 2 --tile_omp 8 --bench 200 --warmup 50 --no_draw 1
+./build/text_det --model ./models/ch_PP-OCRv4_det.onnx --image ./images/test.jpg --tiles 3x3 --tile_overlap 0.15 --nms_iou 0.3 --bind_io 1 --fixed_hw 640x640 --threads 2 --tile_omp 8 --bench 200 --warmup 50 --no_draw 1
 ```
 
 **Report includes (stderr):**

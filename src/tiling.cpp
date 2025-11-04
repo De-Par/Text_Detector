@@ -1,45 +1,39 @@
-#include "tiling.h"
-
 #include <cmath>
 #include <algorithm>
-
 #ifdef _OPENMP
-#include <omp.h>
+    #include <omp.h>
 #endif
+#include "tiling.h"
+
 
 bool parse_tiles(const std::string &s, GridSpec &g)
 {
     if (s.empty())
         return false;
+
     size_t pos = s.find_first_of("xX*");
     if (pos == std::string::npos)
         return false;
 
     int r = 0, c = 0;
-    try
-    {
+    try {
         r = std::stoi(s.substr(0, pos));
         c = std::stoi(s.substr(pos + 1));
     }
-    catch (...)
-    {
-        return false;
-    }
+    catch (...) { return false; }
+
     if (r <= 0 || c <= 0)
         return false;
+
     g.rows = r;
     g.cols = c;
+
     return true;
 }
 
 // --- tiled unbound ---
-std::vector<Detection>
-infer_tiled_unbound(const cv::Mat &img,
-                    DBNet &det,
-                    const GridSpec &g,
-                    float overlap_frac,
-                    double *ms_sum,
-                    int /*omp_threads*/)
+std::vector<Detection> infer_tiled_unbound(const cv::Mat &img, DBNet &det, const GridSpec &g,
+                                           float overlap_frac, double *ms_sum, int /*omp_threads*/)
 {
     const int H = img.rows, W = img.cols;
 
@@ -50,6 +44,7 @@ infer_tiled_unbound(const cv::Mat &img,
     {
         int y0 = (r * H) / g.rows;
         int y1 = ((r + 1) * H) / g.rows;
+
         for (int c = 0; c < g.cols; ++c)
         {
             int x0 = (c * W) / g.cols;
@@ -107,6 +102,7 @@ infer_tiled_unbound(const cv::Mat &img,
         cv::Mat patch = img(roi);
         double ms = 0.0;
         auto dets = det.infer_unbound(patch, &ms);
+
         for (auto &d : dets)
         {
             for (int k = 0; k < 4; ++k)
@@ -122,17 +118,13 @@ infer_tiled_unbound(const cv::Mat &img,
 
     if (ms_sum)
         *ms_sum = sum_ms;
+
     return all;
 }
 
 // --- tiled bound ---
-std::vector<Detection>
-infer_tiled_bound(const cv::Mat &img,
-                  DBNet &det,
-                  const GridSpec &g,
-                  float overlap_frac,
-                  double *ms_sum,
-                  int omp_threads)
+std::vector<Detection> infer_tiled_bound(const cv::Mat &img, DBNet &det, const GridSpec &g,
+                                         float overlap_frac, double *ms_sum, int omp_threads)
 {
     const int H = img.rows, W = img.cols;
 
@@ -143,6 +135,7 @@ infer_tiled_bound(const cv::Mat &img,
     {
         int y0 = (r * H) / g.rows;
         int y1 = ((r + 1) * H) / g.rows;
+
         for (int c = 0; c < g.cols; ++c)
         {
             int x0 = (c * W) / g.cols;
@@ -216,5 +209,6 @@ infer_tiled_bound(const cv::Mat &img,
 
     if (ms_sum)
         *ms_sum = sum_ms;
+
     return all;
 }

@@ -1,16 +1,15 @@
-#include "geometry.h"
 #include <algorithm>
 #include <cmath>
+#include "geometry.h"
+
 
 void order_quad(cv::Point2f pts[4])
 {
     // get tl,tr,br,bl from minAreaRect
     std::vector<cv::Point2f> v(pts, pts + 4);
-    std::sort(v.begin(), v.end(),
-              [](const cv::Point2f &a, const cv::Point2f &b)
-              {
-                  return (a.y < b.y) || (a.y == b.y && a.x < b.x);
-              });
+    std::sort(v.begin(), v.end(), [](const cv::Point2f &a, const cv::Point2f &b) {
+        return (a.y < b.y) || (a.y == b.y && a.x < b.x);
+    });
 
     cv::Point2f tl = v[0].x < v[1].x ? v[0] : v[1];
     cv::Point2f tr = v[0].x < v[1].x ? v[1] : v[0];
@@ -23,25 +22,23 @@ void order_quad(cv::Point2f pts[4])
     pts[3] = bl;
 }
 
-float contour_score(const cv::Mat &prob,
-                    const std::vector<cv::Point> &contour)
+float contour_score(const cv::Mat &prob, const std::vector<cv::Point> &contour)
 {
-    cv::Rect bbox = cv::boundingRect(contour) &
-                    cv::Rect(0, 0, prob.cols, prob.rows);
+    cv::Rect bbox = cv::boundingRect(contour) & cv::Rect(0, 0, prob.cols, prob.rows);
     if (bbox.empty())
         return 0.f;
 
     cv::Mat mask = cv::Mat::zeros(bbox.size(), CV_8U);
     std::vector<std::vector<cv::Point>> cnt(1);
     cnt[0].reserve(contour.size());
+
     for (const auto &p : contour)
-    {
         cnt[0].push_back(p - bbox.tl());
-    }
 
     cv::drawContours(mask, cnt, 0, cv::Scalar(255), cv::FILLED);
     cv::Mat roi = prob(bbox);
     cv::Scalar m = cv::mean(roi, mask);
+
     return static_cast<float>(m[0]);
 }
 
@@ -52,14 +49,12 @@ float poly_area(const std::vector<cv::Point2f> &p)
 
     double a = 0.0;
     for (size_t i = 0, j = p.size() - 1; i < p.size(); j = i++)
-    {
         a += (double)p[j].x * p[i].y - (double)p[i].x * p[j].y;
-    }
+    
     return static_cast<float>(std::abs(a) * 0.5);
 }
 
-float quad_iou(const std::array<cv::Point2f, 4> &A,
-               const std::array<cv::Point2f, 4> &B)
+float quad_iou(const std::array<cv::Point2f, 4> &A, const std::array<cv::Point2f, 4> &B)
 {
     // with OpenCV intersectConvexConvex
     std::vector<cv::Point2f> a(A.begin(), A.end());
@@ -71,5 +66,6 @@ float quad_iou(const std::array<cv::Point2f, 4> &A,
         return 0.f;
 
     float ua = poly_area(a) + poly_area(b) - inter_area;
+
     return ua > 0.f ? inter_area / ua : 0.f;
 }

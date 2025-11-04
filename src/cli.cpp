@@ -1,8 +1,9 @@
-#include "cli.h"
 #include <iostream>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include "cli.h"
+
 
 void usage(const char *prog)
 {
@@ -18,7 +19,7 @@ void usage(const char *prog)
         << "  [--bench N] [--warmup K] [--no_draw 0|1]\n";
 }
 
-bool parse_cli(int argc, char **argv, CliOptions &o)
+bool parse_cli(int argc, char **argv, Options &o)
 {
     for (int i = 1; i < argc; i++)
     {

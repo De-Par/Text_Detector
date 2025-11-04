@@ -1,12 +1,11 @@
-#include "dbnet.h"
 #include <stdexcept>
 #include <algorithm>
 #include <cstring>
 #include <cmath>
+#include "dbnet.h"
 
-DBNet::DBNet(const std::string &model_path,
-             int intra_threads,
-             int inter_threads)
+
+DBNet::DBNet(const std::string &model_path, int intra_threads, int inter_threads)
 {
     so.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
@@ -22,9 +21,7 @@ DBNet::DBNet(const std::string &model_path,
 }
 
 // ---------- preprocessing dynamic size ----------
-void DBNet::preprocess_dynamic(const cv::Mat &img_bgr,
-                               cv::Mat &resized,
-                               cv::Mat &blob) const
+void DBNet::preprocess_dynamic(const cv::Mat &img_bgr, cv::Mat &resized, cv::Mat &blob) const
 {
     if (img_bgr.empty())
         throw std::runtime_error("Empty input image.");
@@ -59,18 +56,13 @@ void DBNet::preprocess_dynamic(const cv::Mat &img_bgr,
     blob = cv::Mat(1, 3 * hw, CV_32F);
 
     float *dst = blob.ptr<float>();
-    std::memcpy(dst + 0 * hw, ch[0].reshape(1, 1).ptr<float>(),
-                hw * sizeof(float));
-    std::memcpy(dst + 1 * hw, ch[1].reshape(1, 1).ptr<float>(),
-                hw * sizeof(float));
-    std::memcpy(dst + 2 * hw, ch[2].reshape(1, 1).ptr<float>(),
-                hw * sizeof(float));
+    std::memcpy(dst + 0 * hw, ch[0].reshape(1, 1).ptr<float>(), hw * sizeof(float));
+    std::memcpy(dst + 1 * hw, ch[1].reshape(1, 1).ptr<float>(), hw * sizeof(float));
+    std::memcpy(dst + 2 * hw, ch[2].reshape(1, 1).ptr<float>(), hw * sizeof(float));
 }
 
 // ---------- preprocessing fixed size ----------
-void DBNet::preprocess_fixed_into(float *dst_chw,
-                                  const cv::Mat &img_bgr,
-                                  int W, int H) const
+void DBNet::preprocess_fixed_into(float *dst_chw, const cv::Mat &img_bgr, int W, int H) const
 {
     cv::Mat resized;
     cv::resize(img_bgr, resized, cv::Size(W, H), 0, 0, cv::INTER_LINEAR);
@@ -87,19 +79,13 @@ void DBNet::preprocess_fixed_into(float *dst_chw,
     cv::split(norm, ch);
 
     const int hw = H * W;
-    std::memcpy(dst_chw + 0 * hw, ch[0].reshape(1, 1).ptr<float>(),
-                hw * sizeof(float));
-    std::memcpy(dst_chw + 1 * hw, ch[1].reshape(1, 1).ptr<float>(),
-                hw * sizeof(float));
-    std::memcpy(dst_chw + 2 * hw, ch[2].reshape(1, 1).ptr<float>(),
-                hw * sizeof(float));
+    std::memcpy(dst_chw + 0 * hw, ch[0].reshape(1, 1).ptr<float>(), hw * sizeof(float));
+    std::memcpy(dst_chw + 1 * hw, ch[1].reshape(1, 1).ptr<float>(), hw * sizeof(float));
+    std::memcpy(dst_chw + 2 * hw, ch[2].reshape(1, 1).ptr<float>(), hw * sizeof(float));
 }
 
 // ---------- postprocessing ----------
-std::vector<Detection> DBNet::postprocess(const cv::Mat &prob_map,
-                                          float scale_h,
-                                          float scale_w,
-                                          const cv::Size &orig_size) const
+std::vector<Detection> DBNet::postprocess(const cv::Mat &prob_map, float scale_h, float scale_w, const cv::Size &orig_size) const
 {
     cv::Mat bin;
     cv::threshold(prob_map, bin, bin_thresh, 1.0, cv::THRESH_BINARY);
@@ -151,8 +137,7 @@ std::vector<Detection> DBNet::postprocess(const cv::Mat &prob_map,
 }
 
 // ---------- simple Run() without IOBinding ----------
-std::vector<Detection> DBNet::infer_unbound(const cv::Mat &img_bgr,
-                                            double *ms_out)
+std::vector<Detection> DBNet::infer_unbound(const cv::Mat &img_bgr, double *ms_out)
 {
     Timer T;
     T.tic();
@@ -162,66 +147,57 @@ std::vector<Detection> DBNet::infer_unbound(const cv::Mat &img_bgr,
     {
         const int hw = fixed_W * fixed_H;
         blob = cv::Mat(1, 3 * hw, CV_32F);
-        preprocess_fixed_into(blob.ptr<float>(), img_bgr,
-                              fixed_W, fixed_H);
-
+        preprocess_fixed_into(blob.ptr<float>(), img_bgr, fixed_W, fixed_H);
         resized.create(fixed_H, fixed_W, CV_8UC3);
     }
     else
-    {
         preprocess_dynamic(img_bgr, resized, blob);
-    }
+    
 
     const int nh = (fixed_H > 0 ? fixed_H : resized.rows);
     const int nw = (fixed_W > 0 ? fixed_W : resized.cols);
 
     std::vector<int64_t> input_shape = {1, 3, nh, nw};
-    Ort::MemoryInfo mem =
-        Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+    Ort::MemoryInfo mem = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
 
     Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
         mem,
         blob.ptr<float>(),
         blob.total(),
         input_shape.data(),
-        input_shape.size());
+        input_shape.size()
+    );
 
     const char *input_names[] = {in_name.c_str()};
     const char *output_names[] = {out_name.c_str()};
 
-    auto out = session.Run(Ort::RunOptions{nullptr},
-                           input_names, &input_tensor, 1,
-                           output_names, 1);
+    auto out = session.Run(Ort::RunOptions{nullptr}, input_names, &input_tensor, 1, output_names, 1);
 
     if (out.size() != 1)
         throw std::runtime_error("Unexpected number of outputs (expected 1).");
 
     float *out_data = out[0].GetTensorMutableData<float>();
-    auto out_shape = out[0]
-                         .GetTensorTypeAndShapeInfo()
-                         .GetShape();
+    auto out_shape = out[0].GetTensorTypeAndShapeInfo().GetShape();
 
     int oh = 0, ow = 0;
     bool ok = false;
+
     // NCHW [1,1,H,W]
-    if (out_shape.size() == 4 &&
-        out_shape[0] == 1 && out_shape[1] == 1)
+    if (out_shape.size() == 4 && out_shape[0] == 1 && out_shape[1] == 1)
     {
         oh = (int)out_shape[2];
         ow = (int)out_shape[3];
         ok = true;
     }
     // NHWC [1,H,W,1]
-    else if (out_shape.size() == 4 &&
-             out_shape[0] == 1 && out_shape[3] == 1)
+    else if (out_shape.size() == 4 && out_shape[0] == 1 && out_shape[3] == 1)
     {
         oh = (int)out_shape[1];
         ow = (int)out_shape[2];
         ok = true;
     }
     // [1,H,W]
-    else if (out_shape.size() == 3 &&
-             out_shape[0] == 1)
+    else if (out_shape.size() == 3 && out_shape[0] == 1)
     {
         oh = (int)out_shape[1];
         ow = (int)out_shape[2];
@@ -251,8 +227,7 @@ std::vector<Detection> DBNet::infer_unbound(const cv::Mat &img_bgr,
     float scale_h = static_cast<float>(oh) / img_bgr.rows;
     float scale_w = static_cast<float>(ow) / img_bgr.cols;
 
-    auto boxes = postprocess(prob, scale_h, scale_w,
-                             img_bgr.size());
+    auto boxes = postprocess(prob, scale_h, scale_w, img_bgr.size());
 
     if (ms_out)
         *ms_out = T.toc_ms();
@@ -270,36 +245,32 @@ std::pair<int, int> DBNet::probe_out_shape_for(int W, int H)
     Ort::Value it = Ort::Value::CreateTensor<float>(
         Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault),
         dummy.data(), dummy.size(),
-        ishape.data(), ishape.size());
+        ishape.data(), ishape.size()
+    );
 
     const char *input_names[] = {in_name.c_str()};
     const char *output_names[] = {out_name.c_str()};
 
-    auto out = session.Run(Ort::RunOptions{nullptr},
-                           input_names, &it, 1,
-                           output_names, 1);
+    auto out = session.Run(Ort::RunOptions{nullptr}, input_names, &it, 1, output_names, 1);
 
     auto oshape = out[0].GetTensorTypeAndShapeInfo().GetShape();
 
     int oh = 0, ow = 0;
     bool ok = false;
 
-    if (oshape.size() == 4 &&
-        oshape[0] == 1 && oshape[1] == 1)
+    if (oshape.size() == 4 && oshape[0] == 1 && oshape[1] == 1)
     {
         oh = (int)oshape[2];
         ow = (int)oshape[3];
         ok = true;
     }
-    else if (oshape.size() == 4 &&
-             oshape[0] == 1 && oshape[3] == 1)
+    else if (oshape.size() == 4 && oshape[0] == 1 && oshape[3] == 1)
     {
         oh = (int)oshape[1];
         ow = (int)oshape[2];
         ok = true;
     }
-    else if (oshape.size() == 3 &&
-             oshape[0] == 1)
+    else if (oshape.size() == 3 && oshape[0] == 1)
     {
         oh = (int)oshape[1];
         ow = (int)oshape[2];
@@ -313,8 +284,7 @@ std::pair<int, int> DBNet::probe_out_shape_for(int W, int H)
     }
 
     if (!ok)
-        throw std::runtime_error(
-            "Cannot probe output shape for the given input size.");
+        throw std::runtime_error("Cannot probe output shape for the given input size.");
 
     return {ow, oh};
 }
@@ -322,10 +292,8 @@ std::pair<int, int> DBNet::probe_out_shape_for(int W, int H)
 void DBNet::prepare_binding(BindingCtx &ctx, int W, int H)
 {
     if (ctx.bound && ctx.curW == W && ctx.curH == H)
-    {
         return;
-    }
-
+    
     auto [OW, OH] = probe_out_shape_for(W, H);
 
     const size_t in_count = 1ull * 3 * H * W;
@@ -340,11 +308,14 @@ void DBNet::prepare_binding(BindingCtx &ctx, int W, int H)
     Ort::Value in_tensor = Ort::Value::CreateTensor<float>(
         ctx.mem,
         ctx.in_buf.data(), ctx.in_buf.size(),
-        ctx.in_shape.data(), ctx.in_shape.size());
+        ctx.in_shape.data(), ctx.in_shape.size()
+    );
+
     Ort::Value out_tensor = Ort::Value::CreateTensor<float>(
         ctx.mem,
         ctx.out_buf.data(), ctx.out_buf.size(),
-        ctx.out_shape.data(), ctx.out_shape.size());
+        ctx.out_shape.data(), ctx.out_shape.size()
+    );
 
     ctx.io.ClearBoundInputs();
     ctx.io.ClearBoundOutputs();
@@ -362,24 +333,20 @@ void DBNet::ensure_pool_size(int n)
 {
     if ((int)pool.size() >= n)
         return;
+
     for (int i = (int)pool.size(); i < n; ++i)
-    {
         pool.emplace_back(std::make_unique<BindingCtx>(session));
-    }
 }
 
 // ---------- infer_bound with IOBinding ----------
-std::vector<Detection> DBNet::infer_bound(const cv::Mat &img_bgr,
-                                          int ctx_idx,
-                                          double *ms_out)
+std::vector<Detection> DBNet::infer_bound(const cv::Mat &img_bgr, int ctx_idx, double *ms_out)
 {
     Timer T;
     T.tic();
 
     if (ctx_idx < 0 || ctx_idx >= (int)pool.size())
-    {
         throw std::runtime_error("Bad binding context index.");
-    }
+    
     BindingCtx &ctx = *pool[ctx_idx];
 
     int W = 0, H = 0;
@@ -393,10 +360,13 @@ std::vector<Detection> DBNet::infer_bound(const cv::Mat &img_bgr,
         int h = img_bgr.rows, w = img_bgr.cols;
         float scale = 1.0f;
         int max_side = std::max(h, w);
+
         if (max_side > limit_side_len)
             scale = static_cast<float>(limit_side_len) / max_side;
+
         H = std::max(32, (int)std::round(h * scale));
         W = std::max(32, (int)std::round(w * scale));
+
         H = (H + 31) / 32 * 32;
         W = (W + 31) / 32 * 32;
     }
@@ -420,8 +390,7 @@ std::vector<Detection> DBNet::infer_bound(const cv::Mat &img_bgr,
     float scale_h = static_cast<float>(ctx.curOH) / img_bgr.rows;
     float scale_w = static_cast<float>(ctx.curOW) / img_bgr.cols;
 
-    auto boxes = postprocess(prob_copy, scale_h, scale_w,
-                             img_bgr.size());
+    auto boxes = postprocess(prob_copy, scale_h, scale_w, img_bgr.size());
 
     if (ms_out)
         *ms_out = T.toc_ms();

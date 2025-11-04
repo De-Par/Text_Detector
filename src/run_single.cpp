@@ -16,7 +16,7 @@
 #include <omp.h>
 #endif
 
-int run_single(const CliOptions &opt)
+int run_single(const Options &opt)
 {
     if (opt.model_path.empty() || opt.image_path.empty())
     {

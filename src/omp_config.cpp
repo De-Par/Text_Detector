@@ -1,21 +1,15 @@
-#include "omp_config.h"
 #include <cstdlib>
-
 #ifdef _OPENMP
-#include <omp.h>
+    #include <omp.h>
 #endif
+#include "omp_config.h"
 
-static void setenv_if_unset(const char *key, const char *val)
+static void inline setenv_if_unset(const char *key, const char *val)
 {
-    if (!std::getenv(key))
-    {
-        setenv(key, val, 1);
-    }
+    if (!std::getenv(key)) setenv(key, val, 1);
 }
 
-void configure_openmp_affinity(const std::string &omp_places_cli,
-                               const std::string &omp_bind_cli,
-                               int tile_omp_threads)
+void configure_openmp_affinity(const std::string &omp_places_cli, const std::string &omp_bind_cli, int tile_omp_threads)
 {
     // OMP_PLACES
     if (!omp_places_cli.empty())
