@@ -96,21 +96,31 @@ sudo cp -d build/Linux/Release/libonnxruntime_providers_shared.so /usr/local/lib
 sudo ldconfig
 ```
 
----
-
 ### MacOS (Apple Silicon)
-
 ```bash
 brew install meson ninja opencv onnxruntime libomp
 ```
-Headers typically at `/opt/homebrew/Cellar/onnxruntime/<version>/include` and libraries at `/opt/homebrew/Cellar/onnxruntime/<version>/lib`
+> Headers typically at `/opt/homebrew/Cellar/onnxruntime/<version>/include` and libraries at `/opt/homebrew/Cellar/onnxruntime/<version>/lib`
+
+If you face `Symbol not found: ___kmpc_barrier` error, so that means your binary was compiled with OpenMP, but the OpenMP runtime library isn’t being found/linked at launch. Try this:
+
+```bash
+brew install llvm
+```
 
 
 ## Install & Build
 
 ```bash
-meson setup builddir
-meson compile -C builddir 
+meson setup build
+meson compile -C build 
+```
+
+Or run from project root such script `scripts/build.sh`:
+
+```bash
+chmod +x ./scripts/build.sh
+./scripts/build.sh
 ```
 
 > 💡 If you see `onnxruntime_cxx_api.h: No such file or directory`, verify that ORT headers are discoverable by Meson (e.g., Homebrew path `/opt/homebrew/Cellar/onnxruntime/<version>/include` on MacOS).
@@ -214,6 +224,12 @@ x0,y0 x1,y1 x2,y2 x3,y3
 
 
 ## Quick Start
+
+**Demo script:**
+```bash
+chmod +x ./scripts/run.sh
+./scripts/run.sh
+```
 
 **Basic (no tiling):**
 ```bash

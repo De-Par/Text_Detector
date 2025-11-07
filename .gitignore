@@ -60,3 +60,7 @@ build.ninja
 
 # Misc
 compile_commands.json
+
+# Output images
+*.png
+*.jpg

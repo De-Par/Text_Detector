@@ -5,8 +5,7 @@ project('text_det', 'cpp',
         'warning_level=2',
         'buildtype=release',
         'optimization=3',
-        'b_ndebug=if-release',
-        'b_lto=true',          
+        'b_ndebug=if-release'       
     ]
 )
 
@@ -24,13 +23,12 @@ is_gcc    = (cpp.get_id() == 'gcc')
 ort_root     = get_option('onnxruntime_dir')
 cpu_opt      = get_option('cpu_opt')
 fast_math   = get_option('fast_math')
-thinlto     = get_option('thinlto')
 use_openmp  = get_option('use_openmp')
 rpath_extra  = get_option('install_rpath_extra')
 strict_warn = get_option('strict_warnings')
 
 # ---- Compile/Link flags (guarded) ----
-cxx_args = []
+cxx_args = ['-O3']
 ld_args  = []
 
 # Smaller/faster binaries
@@ -47,16 +45,6 @@ if fast_math
             cxx_args += f
         endif
     endforeach
-endif
-
-# ThinLTO on Clang (in addition to b_lto=true)
-if thinlto and is_clang
-    if cpp.has_argument('-flto=thin')
-        cxx_args += '-flto=thin'
-    endif
-    if cpp.has_link_argument('-flto=thin')
-        ld_args += '-flto=thin'
-    endif
 endif
 
 # CPU tuning
@@ -220,7 +208,6 @@ summary(
     {
         'cpu_opt' : cpu_opt, 
         'fast_math' : fast_math, 
-        'thinlto' : thinlto, 
         'lto' : get_option('b_lto')
     }, 
     section : 'Build'
