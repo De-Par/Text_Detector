@@ -1,10 +1,11 @@
 #include <algorithm>
 #include <numeric>
+
 #include "nms.h"
 #include "geometry.h"
 
-std::vector<Detection> nms_poly(const std::vector<Detection> &dets, float iou_thr)
-{
+
+std::vector<Detection> nms_poly(const std::vector<Detection> &dets, float iou_thr) {
     if (dets.empty())
         return {};
 
@@ -18,15 +19,13 @@ std::vector<Detection> nms_poly(const std::vector<Detection> &dets, float iou_th
     std::vector<Detection> keep;
     keep.reserve(dets.size());
 
-    for (size_t _i = 0; _i < idx.size(); ++_i)
-    {
+    for (size_t _i = 0; _i < idx.size(); ++_i) {
         int i = idx[_i];
         if (suppressed[i])
             continue;
 
         keep.push_back(dets[i]);
-        for (size_t _j = _i + 1; _j < idx.size(); ++_j)
-        {
+        for (size_t _j = _i + 1; _j < idx.size(); ++_j) {
             int j = idx[_j];
             if (suppressed[j])
                 continue;

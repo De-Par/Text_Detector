@@ -3,14 +3,14 @@
 #else
     #include <opencv4/opencv2/opencv.hpp>
 #endif
+
 #include "cli.h"
 #include "omp_config.h"
 #include "run_bench.h"
 #include "run_single.h"
 
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     Options opt;
     if (!parse_cli(argc, argv, opt)) 
         return EXIT_FAILURE;

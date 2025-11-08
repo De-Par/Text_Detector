@@ -1,10 +1,13 @@
 #pragma once
+
+#include <vector>
+
 #if defined(__APPLE__)
     #include <opencv2/opencv.hpp>
 #else
     #include <opencv4/opencv2/opencv.hpp>
 #endif
-#include <vector>
+
 #include "geometry.h"
 
 

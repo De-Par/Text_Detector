@@ -1,9 +1,9 @@
 #pragma once
+
 #include <string>
 
 
-struct Options
-{
+struct Options {
     std::string model_path;
     std::string image_path;
     std::string out_path = "out.png";

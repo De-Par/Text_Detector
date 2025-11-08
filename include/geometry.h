@@ -1,15 +1,16 @@
 #pragma once
+
+#include <array>
+#include <vector>
+
 #if defined(__APPLE__)
     #include <opencv2/opencv.hpp>
 #else
     #include <opencv4/opencv2/opencv.hpp>
 #endif
-#include <array>
-#include <vector>
 
 
-struct Detection
-{
+struct Detection {
     std::array<cv::Point2f, 4> pts; 
     float score;                    
 };

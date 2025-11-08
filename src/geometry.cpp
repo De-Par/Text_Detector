@@ -1,10 +1,10 @@
 #include <algorithm>
 #include <cmath>
+
 #include "geometry.h"
 
 
-void order_quad(cv::Point2f pts[4])
-{
+void order_quad(cv::Point2f pts[4]) {
     // get tl,tr,br,bl from minAreaRect
     std::vector<cv::Point2f> v(pts, pts + 4);
     std::sort(v.begin(), v.end(), [](const cv::Point2f &a, const cv::Point2f &b) {
@@ -22,8 +22,7 @@ void order_quad(cv::Point2f pts[4])
     pts[3] = bl;
 }
 
-float contour_score(const cv::Mat &prob, const std::vector<cv::Point> &contour)
-{
+float contour_score(const cv::Mat &prob, const std::vector<cv::Point> &contour) {
     cv::Rect bbox = cv::boundingRect(contour) & cv::Rect(0, 0, prob.cols, prob.rows);
     if (bbox.empty())
         return 0.f;
@@ -42,20 +41,16 @@ float contour_score(const cv::Mat &prob, const std::vector<cv::Point> &contour)
     return static_cast<float>(m[0]);
 }
 
-float poly_area(const std::vector<cv::Point2f> &p)
-{
+float poly_area(const std::vector<cv::Point2f> &p) {
     if (p.size() < 3)
         return 0.f;
-
     double a = 0.0;
     for (size_t i = 0, j = p.size() - 1; i < p.size(); j = i++)
         a += (double)p[j].x * p[i].y - (double)p[i].x * p[j].y;
-    
     return static_cast<float>(std::abs(a) * 0.5);
 }
 
-float quad_iou(const std::array<cv::Point2f, 4> &A, const std::array<cv::Point2f, 4> &B)
-{
+float quad_iou(const std::array<cv::Point2f, 4> &A, const std::array<cv::Point2f, 4> &B) {
     // with OpenCV intersectConvexConvex
     std::vector<cv::Point2f> a(A.begin(), A.end());
     std::vector<cv::Point2f> b(B.begin(), B.end());

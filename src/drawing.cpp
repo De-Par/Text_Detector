@@ -1,11 +1,10 @@
 #include <iostream>
+
 #include "drawing.h"
 
 
-void draw_and_dump(cv::Mat &img, const std::vector<Detection> &dets)
-{
-    for (const auto &d : dets)
-    {
+void draw_and_dump(cv::Mat &img, const std::vector<Detection> &dets) {
+    for (const auto &d : dets) {
         cv::Point p[4] = {
             cv::Point(cvRound(d.pts[0].x), cvRound(d.pts[0].y)),
             cv::Point(cvRound(d.pts[1].x), cvRound(d.pts[1].y)),

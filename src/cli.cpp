@@ -2,11 +2,11 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+
 #include "cli.h"
 
 
-void usage(const char *prog)
-{
+void usage(const char *prog) {
     std::cout
         << "Usage: " << prog << "\n"
         << "  --model det.onnx --image input.jpg [--out out.png]\n"
@@ -19,13 +19,10 @@ void usage(const char *prog)
         << "  [--bench N] [--warmup K] [--no_draw 0|1]\n";
 }
 
-bool parse_cli(int argc, char **argv, Options &o)
-{
-    for (int i = 1; i < argc; i++)
-    {
+bool parse_cli(int argc, char **argv, Options &o) {
+    for (int i = 1; i < argc; i++) {
         std::string a = argv[i];
-        auto need = [&](const char *key)
-        {
+        auto need = [&](const char *key) {
             return a == key && (i + 1 < argc);
         };
 
@@ -69,21 +66,18 @@ bool parse_cli(int argc, char **argv, Options &o)
             o.warmup = std::stoi(argv[++i]);
         else if (need("--no_draw"))
             o.no_draw = std::stoi(argv[++i]);
-        else if (a == "-h" || a == "--help")
-        {
+        else if (a == "-h" || a == "--help") {
             usage(argv[0]);
             return false;
         }
-        else
-        {
+        else {
             std::cerr << "Unknown arg: " << a << "\n";
             usage(argv[0]);
             return false;
         }
     }
 
-    auto clampf = [](float v, float lo, float hi)
-    {
+    auto clampf = [](float v, float lo, float hi) {
         return std::max(lo, std::min(hi, v));
     };
 
@@ -101,26 +95,21 @@ bool parse_cli(int argc, char **argv, Options &o)
     if (o.side < 32)
         o.side = 32;
 
-    if (!o.fixed_hw.empty())
-    {
+    if (!o.fixed_hw.empty()) {
         size_t pos = o.fixed_hw.find_first_of("xX*");
-        if (pos == std::string::npos)
-        {
+        if (pos == std::string::npos) {
             std::cerr << "Bad --fixed_hw format. Use WxH.\n";
             return false;
         }
-        try
-        {
+        try {
             o.fixedW = std::stoi(o.fixed_hw.substr(0, pos));
             o.fixedH = std::stoi(o.fixed_hw.substr(pos + 1));
         }
-        catch (...)
-        {
+        catch (...) {
             std::cerr << "Bad --fixed_hw numbers.\n";
             return false;
         }
-        if (o.fixedW < 32 || o.fixedH < 32)
-        {
+        if (o.fixedW < 32 || o.fixedH < 32) {
             std::cerr << "--fixed_hw too small.\n";
             return false;
         }

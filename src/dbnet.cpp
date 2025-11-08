@@ -2,11 +2,11 @@
 #include <algorithm>
 #include <cstring>
 #include <cmath>
+
 #include "dbnet.h"
 
 
-DBNet::DBNet(const std::string &model_path, int intra_threads, int inter_threads)
-{
+DBNet::DBNet(const std::string &model_path, int intra_threads, int inter_threads) {
     so.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
     if (intra_threads > 0)
@@ -21,8 +21,7 @@ DBNet::DBNet(const std::string &model_path, int intra_threads, int inter_threads
 }
 
 // ---------- preprocessing dynamic size ----------
-void DBNet::preprocess_dynamic(const cv::Mat &img_bgr, cv::Mat &resized, cv::Mat &blob) const
-{
+void DBNet::preprocess_dynamic(const cv::Mat &img_bgr, cv::Mat &resized, cv::Mat &blob) const {
     if (img_bgr.empty())
         throw std::runtime_error("Empty input image.");
 
@@ -62,8 +61,7 @@ void DBNet::preprocess_dynamic(const cv::Mat &img_bgr, cv::Mat &resized, cv::Mat
 }
 
 // ---------- preprocessing fixed size ----------
-void DBNet::preprocess_fixed_into(float *dst_chw, const cv::Mat &img_bgr, int W, int H) const
-{
+void DBNet::preprocess_fixed_into(float *dst_chw, const cv::Mat &img_bgr, int W, int H) const {
     cv::Mat resized;
     cv::resize(img_bgr, resized, cv::Size(W, H), 0, 0, cv::INTER_LINEAR);
 
@@ -85,15 +83,13 @@ void DBNet::preprocess_fixed_into(float *dst_chw, const cv::Mat &img_bgr, int W,
 }
 
 // ---------- postprocessing ----------
-std::vector<Detection> DBNet::postprocess(const cv::Mat &prob_map, float scale_h, float scale_w, const cv::Size &orig_size) const
-{
+std::vector<Detection> DBNet::postprocess(const cv::Mat &prob_map, float scale_h, float scale_w, const cv::Size &orig_size) const {
     cv::Mat bin;
     cv::threshold(prob_map, bin, bin_thresh, 1.0, cv::THRESH_BINARY);
     bin.convertTo(bin, CV_8U, 255.0);
 
     int k = std::max(1, int(std::round(unclip_ratio)));
-    cv::Mat kernel = cv::getStructuringElement(
-        cv::MORPH_ELLIPSE, cv::Size(2 * k + 1, 2 * k + 1));
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2 * k + 1, 2 * k + 1));
     cv::dilate(bin, bin, kernel);
 
     std::vector<std::vector<cv::Point>> contours;
@@ -102,8 +98,7 @@ std::vector<Detection> DBNet::postprocess(const cv::Mat &prob_map, float scale_h
     std::vector<Detection> dets;
     dets.reserve(contours.size());
 
-    for (auto &c : contours)
-    {
+    for (auto &c : contours) {
         if (c.size() < 3)
             continue;
 
@@ -120,14 +115,11 @@ std::vector<Detection> DBNet::postprocess(const cv::Mat &prob_map, float scale_h
         order_quad(pts);
 
         Detection d{};
-        for (int i = 0; i < 4; ++i)
-        {
+        for (int i = 0; i < 4; ++i) {
             pts[i].x = pts[i].x / scale_w;
             pts[i].y = pts[i].y / scale_h;
-            pts[i].x = std::clamp(pts[i].x, 0.0f,
-                                  float(orig_size.width - 1));
-            pts[i].y = std::clamp(pts[i].y, 0.0f,
-                                  float(orig_size.height - 1));
+            pts[i].x = std::clamp(pts[i].x, 0.0f, float(orig_size.width - 1));
+            pts[i].y = std::clamp(pts[i].y, 0.0f, float(orig_size.height - 1));
             d.pts[i] = pts[i];
         }
         d.score = score;
@@ -137,14 +129,12 @@ std::vector<Detection> DBNet::postprocess(const cv::Mat &prob_map, float scale_h
 }
 
 // ---------- simple Run() without IOBinding ----------
-std::vector<Detection> DBNet::infer_unbound(const cv::Mat &img_bgr, double *ms_out)
-{
+std::vector<Detection> DBNet::infer_unbound(const cv::Mat &img_bgr, double *ms_out) {
     Timer T;
     T.tic();
 
     cv::Mat resized, blob;
-    if (fixed_W > 0 && fixed_H > 0)
-    {
+    if (fixed_W > 0 && fixed_H > 0) {
         const int hw = fixed_W * fixed_H;
         blob = cv::Mat(1, 3 * hw, CV_32F);
         preprocess_fixed_into(blob.ptr<float>(), img_bgr, fixed_W, fixed_H);
@@ -183,29 +173,25 @@ std::vector<Detection> DBNet::infer_unbound(const cv::Mat &img_bgr, double *ms_o
     bool ok = false;
 
     // NCHW [1,1,H,W]
-    if (out_shape.size() == 4 && out_shape[0] == 1 && out_shape[1] == 1)
-    {
+    if (out_shape.size() == 4 && out_shape[0] == 1 && out_shape[1] == 1) {
         oh = (int)out_shape[2];
         ow = (int)out_shape[3];
         ok = true;
     }
     // NHWC [1,H,W,1]
-    else if (out_shape.size() == 4 && out_shape[0] == 1 && out_shape[3] == 1)
-    {
+    else if (out_shape.size() == 4 && out_shape[0] == 1 && out_shape[3] == 1) {
         oh = (int)out_shape[1];
         ow = (int)out_shape[2];
         ok = true;
     }
     // [1,H,W]
-    else if (out_shape.size() == 3 && out_shape[0] == 1)
-    {
+    else if (out_shape.size() == 3 && out_shape[0] == 1) {
         oh = (int)out_shape[1];
         ow = (int)out_shape[2];
         ok = true;
     }
     // [H,W]
-    else if (out_shape.size() == 2)
-    {
+    else if (out_shape.size() == 2) {
         oh = (int)out_shape[0];
         ow = (int)out_shape[1];
         ok = true;
@@ -217,8 +203,7 @@ std::vector<Detection> DBNet::infer_unbound(const cv::Mat &img_bgr, double *ms_o
     cv::Mat prob_map(oh, ow, CV_32F, out_data);
     cv::Mat prob = prob_map.clone();
 
-    if (apply_sigmoid)
-    {
+    if (apply_sigmoid) {
         cv::Mat ex;
         cv::exp(-prob, ex);
         prob = 1.0f / (1.0f + ex);
@@ -236,9 +221,7 @@ std::vector<Detection> DBNet::infer_unbound(const cv::Mat &img_bgr, double *ms_o
 }
 
 // ---------- utils for IOBinding ----------
-
-std::pair<int, int> DBNet::probe_out_shape_for(int W, int H)
-{
+std::pair<int, int> DBNet::probe_out_shape_for(int W, int H) {
     std::vector<float> dummy(1LL * 3 * H * W, 0.0f);
     std::vector<int64_t> ishape{1, 3, H, W};
 
@@ -258,26 +241,22 @@ std::pair<int, int> DBNet::probe_out_shape_for(int W, int H)
     int oh = 0, ow = 0;
     bool ok = false;
 
-    if (oshape.size() == 4 && oshape[0] == 1 && oshape[1] == 1)
-    {
+    if (oshape.size() == 4 && oshape[0] == 1 && oshape[1] == 1) {
         oh = (int)oshape[2];
         ow = (int)oshape[3];
         ok = true;
     }
-    else if (oshape.size() == 4 && oshape[0] == 1 && oshape[3] == 1)
-    {
+    else if (oshape.size() == 4 && oshape[0] == 1 && oshape[3] == 1) {
         oh = (int)oshape[1];
         ow = (int)oshape[2];
         ok = true;
     }
-    else if (oshape.size() == 3 && oshape[0] == 1)
-    {
+    else if (oshape.size() == 3 && oshape[0] == 1) {
         oh = (int)oshape[1];
         ow = (int)oshape[2];
         ok = true;
     }
-    else if (oshape.size() == 2)
-    {
+    else if (oshape.size() == 2) {
         oh = (int)oshape[0];
         ow = (int)oshape[1];
         ok = true;
@@ -289,8 +268,7 @@ std::pair<int, int> DBNet::probe_out_shape_for(int W, int H)
     return {ow, oh};
 }
 
-void DBNet::prepare_binding(BindingCtx &ctx, int W, int H)
-{
+void DBNet::prepare_binding(BindingCtx &ctx, int W, int H) {
     if (ctx.bound && ctx.curW == W && ctx.curH == H)
         return;
     
@@ -329,18 +307,15 @@ void DBNet::prepare_binding(BindingCtx &ctx, int W, int H)
     ctx.bound = true;
 }
 
-void DBNet::ensure_pool_size(int n)
-{
+void DBNet::ensure_pool_size(int n) {
     if ((int)pool.size() >= n)
         return;
-
     for (int i = (int)pool.size(); i < n; ++i)
         pool.emplace_back(std::make_unique<BindingCtx>(session));
 }
 
 // ---------- infer_bound with IOBinding ----------
-std::vector<Detection> DBNet::infer_bound(const cv::Mat &img_bgr, int ctx_idx, double *ms_out)
-{
+std::vector<Detection> DBNet::infer_bound(const cv::Mat &img_bgr, int ctx_idx, double *ms_out) {
     Timer T;
     T.tic();
 
@@ -350,13 +325,11 @@ std::vector<Detection> DBNet::infer_bound(const cv::Mat &img_bgr, int ctx_idx, d
     BindingCtx &ctx = *pool[ctx_idx];
 
     int W = 0, H = 0;
-    if (fixed_W > 0 && fixed_H > 0)
-    {
+    if (fixed_W > 0 && fixed_H > 0) {
         W = fixed_W;
         H = fixed_H;
     }
-    else
-    {
+    else {
         int h = img_bgr.rows, w = img_bgr.cols;
         float scale = 1.0f;
         int max_side = std::max(h, w);
@@ -380,8 +353,7 @@ std::vector<Detection> DBNet::infer_bound(const cv::Mat &img_bgr, int ctx_idx, d
     cv::Mat prob(ctx.curOH, ctx.curOW, CV_32F, ctx.out_buf.data());
     cv::Mat prob_copy = prob.clone();
 
-    if (apply_sigmoid)
-    {
+    if (apply_sigmoid) {
         cv::Mat ex;
         cv::exp(-prob_copy, ex);
         prob_copy = 1.0f / (1.0f + ex);
