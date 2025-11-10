@@ -9,6 +9,8 @@
     #include <opencv4/opencv2/opencv.hpp>
 #endif
 
+#define USE_FAST_IOU 0
+
 
 struct Detection {
     std::array<cv::Point2f, 4> pts; 

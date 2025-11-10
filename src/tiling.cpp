@@ -1,4 +1,3 @@
-#include <cmath>
 #include <algorithm>
 
 #ifdef _OPENMP
@@ -23,90 +22,79 @@ bool parse_tiles(const std::string &s, GridSpec &g) {
     }
     catch (...) { return false; }
 
-    if (r <= 0 || c <= 0)
+    if (r < 1 || c < 1)
         return false;
 
     g.rows = r;
     g.cols = c;
 
-    return true;
+    return (g.rows > 1 || g.cols > 1);
 }
 
-// --- tiled unbound ---
-std::vector<Detection> infer_tiled_unbound(const cv::Mat &img, DBNet &det, const GridSpec &g,
-                                           float overlap_frac, double *ms_sum, int /*omp_threads*/) {
-    const int H = img.rows, W = img.cols;
+static std::vector<cv::Rect> make_tiles(const cv::Size &S, const GridSpec &g, float overlap) {
+    int W = S.width, H = S.height;
+    float stepX = W / (float)g.cols, stepY = H / (float)g.rows;
+    float ovX = std::min(stepX * overlap, stepX * 0.49f);
+    float ovY = std::min(stepY * overlap, stepY * 0.49f);
 
-    std::vector<cv::Rect> tiles;
-    tiles.reserve(g.rows * g.cols);
-
+    std::vector<cv::Rect> R;
+    R.reserve(g.rows * g.cols);
     for (int r = 0; r < g.rows; ++r) {
-        int y0 = (r * H) / g.rows;
-        int y1 = ((r + 1) * H) / g.rows;
-
         for (int c = 0; c < g.cols; ++c) {
-            int x0 = (c * W) / g.cols;
-            int x1 = ((c + 1) * W) / g.cols;
-
-            int tw = x1 - x0, th = y1 - y0;
-            int dx = int(std::round(0.5f * overlap_frac * tw));
-            int dy = int(std::round(0.5f * overlap_frac * th));
-
-            int ex0 = std::max(0, x0 - dx);
-            int ey0 = std::max(0, y0 - dy);
-            int ex1 = std::min(W, x1 + dx);
-            int ey1 = std::min(H, y1 + dy);
-
-            tiles.emplace_back(ex0, ey0, ex1 - ex0, ey1 - ey0);
+            float x0 = std::max(0.f, c * stepX - ovX);
+            float y0 = std::max(0.f, r * stepY - ovY);
+            float x1 = std::min((float)W, (c + 1) * stepX + ovX);
+            float y1 = std::min((float)H, (r + 1) * stepY + ovY);
+            cv::Rect rc((int)std::round(x0), (int)std::round(y0), (int)std::round(x1 - x0), (int)std::round(y1 - y0));
+            R.push_back(rc);
         }
     }
+    return R;
+}
 
+std::vector<Detection> infer_tiled_unbound(const cv::Mat &img, DBNet &det, const GridSpec &g, float overlap_frac, double *ms_sum, int omp_threads) {
+    auto tiles = make_tiles(img.size(), g, overlap_frac);
     std::vector<Detection> all;
+    all.reserve(128);
     double sum_ms = 0.0;
 
 #ifdef _OPENMP
-    #pragma omp parallel
-    {
-        std::vector<Detection> local;
-        double local_ms = 0.0;
+    (void)omp_threads; // already setup in omp_config
 
-        #pragma omp for schedule(dynamic)
-        for (int i = 0; i < (int)tiles.size(); ++i) {
-            const cv::Rect &roi = tiles[i];
-            cv::Mat patch = img(roi);
+    #pragma omp parallel for schedule(static)
+    for (int i = 0; i < (int)tiles.size(); ++i) {
+        cv::Mat patch = img(tiles[i]);
+        double ms = 0.0;
+        auto dets = det.infer_unbound(patch, &ms);
 
-            double ms = 0.0;
-            auto dets = det.infer_unbound(patch, &ms);
-            for (auto &d : dets) {
-                for (int k = 0; k < 4; ++k) {
-                    d.pts[k].x += roi.x;
-                    d.pts[k].y += roi.y;
-                }
-                local.push_back(d);
+        // move to original coordinates
+        for (auto &d : dets) {
+            for (int k = 0; k < 4; ++k) {
+                d.pts[k].x += tiles[i].x;
+                d.pts[k].y += tiles[i].y;
             }
-            local_ms += ms;
         }
 
         #pragma omp critical
         {
-            all.insert(all.end(), local.begin(), local.end());
-            sum_ms += local_ms;
+            sum_ms += ms;
+            all.insert(all.end(), dets.begin(), dets.end());
         }
     }
 #else
-    for (const auto &roi : tiles) {
-        cv::Mat patch = img(roi);
+    for (auto &rc : tiles) {
+        cv::Mat patch = img(rc);
         double ms = 0.0;
         auto dets = det.infer_unbound(patch, &ms);
-
         for (auto &d : dets) {
             for (int k = 0; k < 4; ++k) {
-                d.pts[k].x += roi.x;
-                d.pts[k].y += roi.y;
+                d.pts[k].x += rc.x;
+                d.pts[k].y += rc.y;
             }
-            all.push_back(d);
         }
+
         sum_ms += ms;
+        all.insert(all.end(), dets.begin(), dets.end());
     }
 #endif
 
@@ -116,84 +104,50 @@ std::vector<Detection> infer_tiled_unbound(const cv::Mat &img, DBNet &det, const
     return all;
 }
 
-// --- tiled bound ---
-std::vector<Detection> infer_tiled_bound(const cv::Mat &img, DBNet &det, const GridSpec &g,
-                                         float overlap_frac, double *ms_sum, int omp_threads) {
-    const int H = img.rows, W = img.cols;
-
-    std::vector<cv::Rect> tiles;
-    tiles.reserve(g.rows * g.cols);
-
-    for (int r = 0; r < g.rows; ++r) {
-        int y0 = (r * H) / g.rows;
-        int y1 = ((r + 1) * H) / g.rows;
-
-        for (int c = 0; c < g.cols; ++c) {
-            int x0 = (c * W) / g.cols;
-            int x1 = ((c + 1) * W) / g.cols;
-
-            int tw = x1 - x0, th = y1 - y0;
-            int dx = int(std::round(0.5f * overlap_frac * tw));
-            int dy = int(std::round(0.5f * overlap_frac * th));
-
-            int ex0 = std::max(0, x0 - dx);
-            int ey0 = std::max(0, y0 - dy);
-            int ex1 = std::min(W, x1 + dx);
-            int ey1 = std::min(H, y1 + dy);
-
-            tiles.emplace_back(ex0, ey0, ex1 - ex0, ey1 - ey0);
-        }
-    }
-
-#ifdef _OPENMP
-    int nthreads = (omp_threads > 0 ? omp_threads : omp_get_max_threads());
-#else
-    int nthreads = 1;
-    (void)omp_threads;
-#endif
-
-    det.ensure_pool_size(std::max(1, nthreads));
-
+std::vector<Detection> infer_tiled_bound(const cv::Mat &img, DBNet &det, const GridSpec &g, float overlap_frac, double *ms_sum, int omp_threads) {
+    auto tiles = make_tiles(img.size(), g, overlap_frac);
     std::vector<Detection> all;
+    all.reserve(128);
     double sum_ms = 0.0;
 
 #ifdef _OPENMP
-    #pragma omp parallel
-    {
-        std::vector<Detection> local;
-        double local_ms = 0.0;
+    (void)omp_threads;
+
+    #pragma omp parallel for schedule(static)
+    for (int i = 0; i < (int)tiles.size(); ++i) {
         int tid = omp_get_thread_num();
+        cv::Mat patch = img(tiles[i]);
+        double ms = 0.0;
+        auto dets = det.infer_bound(patch, tid, &ms);
 
-        #pragma omp for schedule(dynamic)
-        for (int i = 0; i < (int)tiles.size(); ++i) {
-            const cv::Rect &roi = tiles[i];
-            cv::Mat patch = img(roi);
-
-            double ms = 0.0;
-            auto dets = det.infer_bound(patch, tid, &ms);
-
-            for (auto &d : dets) {
-                for (int k = 0; k < 4; ++k) {
-                    d.pts[k].x += roi.x;
-                    d.pts[k].y += roi.y;
-                }
-                local.push_back(d);
+        for (auto &d : dets) {
+            for (int k = 0; k < 4; ++k) {
+                d.pts[k].x += tiles[i].x;
+                d.pts[k].y += tiles[i].y;
             }
-            local_ms += ms;
         }
-        
+
         #pragma omp critical
         {
-            all.insert(all.end(), local.begin(), local.end());
-            sum_ms += local_ms;
+            sum_ms += ms;
+            all.insert(all.end(), dets.begin(), dets.end());
         }
     }
 #else
-    {
+    for (auto &rc : tiles) {
+        cv::Mat patch = img(rc);
         double ms = 0.0;
-        auto dets = det.infer_bound(img, 0, &ms);
-        all.insert(all.end(), dets.begin(), dets.end());
+        auto dets = det.infer_bound(patch, 0, &ms);
+
+        for (auto &d : dets) {
+            for (int k = 0; k < 4; ++k) {
+                d.pts[k].x += rc.x;
+                d.pts[k].y += rc.y;
+            }
+        }
+
         sum_ms += ms;
+        all.insert(all.end(), dets.begin(), dets.end());
     }
 #endif
 

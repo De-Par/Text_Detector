@@ -12,14 +12,16 @@ void draw_and_dump(cv::Mat &img, const std::vector<Detection> &dets) {
             cv::Point(cvRound(d.pts[3].x), cvRound(d.pts[3].y)),
         };
 
+        // Draw
         for (int i = 0; i < 4; ++i)
             cv::line(img, p[i], p[(i + 1) % 4], cv::Scalar(0, 255, 0), 2, cv::LINE_AA);
 
+        // Dump
         std::cout
             << p[0].x << "," << p[0].y << " "
             << p[1].x << "," << p[1].y << " "
             << p[2].x << "," << p[2].y << " "
-            << p[3].x << "," << p[3].y
-            << std::endl;
+            << p[3].x << "," << p[3].y << " "
+            << "score=" << d.score << std::endl;
     }
 }

@@ -1,9 +1,12 @@
+# IDE configs
 .vscode
 .idea
 .DS_Store
-.build
 
-### C++ ###
+# Build dirs
+build
+builddir
+
 # Prerequisites
 *.d
 
@@ -37,8 +40,7 @@
 *.out
 *.app
 
-### Meson ###
-# subproject directories
+# Meson subproject directories
 /subprojects/*
 !/subprojects/*.wrap
 
@@ -49,6 +51,7 @@ meson-private
 # Meson Files
 meson_benchmark_setup.dat
 meson_test_setup.dat
+
 # C++ specific
 sanitycheckcpp.cc     
 sanitycheckcpp.exe   

@@ -1,104 +1,89 @@
 #include <iostream>
+#include <sstream>
+#include <cstring>
 #include <algorithm>
-#include <cmath>
-#include <cstdlib>
 
 #include "cli.h"
 
 
+static bool parse_int(const std::string &s, int &v) {
+    try { v = std::stoi(s); return true; } catch (...) { return false; }
+}
+
+static bool parse_float(const std::string &s, float &v) {
+    try { v = std::stof(s); return true; } catch (...) { return false; }
+}
+
 void usage(const char *prog) {
-    std::cout
-        << "Usage: " << prog << "\n"
-        << "  --model det.onnx --image input.jpg [--out out.png]\n"
-        << "  [--bin_thresh 0.3] [--box_thresh 0.6] [--side 960]\n"
-        << "  [--threads N] [--unclip 1.5] [--apply_sigmoid 0|1]\n"
-        << "  [--tiles RxC] [--tile_overlap 0.10] [--nms_iou 0.3] [--tile_omp N]\n"
-        << "  [--omp_places <cores|threads|sockets|{…}>]\n"
-        << "  [--omp_bind <close|spread|master|true|false>]\n"
-        << "  [--bind_io 0|1] [--fixed_hw WxH]\n"
-        << "  [--bench N] [--warmup K] [--no_draw 0|1]\n";
+    std::cerr << 
+    "Usage:\n"
+    "  " << prog << " --model det.onnx --image img.jpg [options]\n\n"
+    "Options:\n"
+    "  --model PATH               ONNX model path (required)\n"
+    "  --image PATH               Input image (required)\n"
+    "  --out PATH                 Output image (draw boxes), default: out.png\n"
+    "  --bin_thresh F             Binarization threshold, default: 0.3\n"
+    "  --box_thresh F             Box score threshold, default: 0.6\n"
+    "  --unclip F                 Unclip ratio, default: 1.5\n"
+    "  --side N                   Limit side (no-tiles), default: 960\n"
+    "  --threads N                ORT intra-op threads (no-tiles). 0=auto\n"
+    "  --tiles RxC                Enable tiling (e.g., 3x3)\n"
+    "  --tile_overlap F           Overlap fraction [0..0.5], default: 0.10\n"
+    "  --tile_omp N               OpenMP threads for tiles. 0=auto(physical cores)\n"
+    "  --nms_iou F                NMS IoU threshold, default: 0.30\n"
+    "  --apply_sigmoid 0|1        Apply sigmoid on output map, default: 0\n"
+    "  --bind_io 0|1              Use I/O binding (recommended), default: 0\n"
+    "  --fixed_hw WxH              Fix tile input size (e.g., 480x480). Auto if tiles\n"
+    "  --omp_places STR           e.g., cores | threads\n"
+    "  --omp_bind STR             e.g., close | spread\n"
+    "  --bench N                  Benchmark iterations\n"
+    "  --warmup N                 Warmup iterations (bench), default: 20\n"
+    "  --no_draw                  Do not write output image\n";
 }
 
 bool parse_cli(int argc, char **argv, Options &o) {
-    for (int i = 1; i < argc; i++) {
+    if (argc < 3) return false;
+    for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
-        auto need = [&](const char *key) {
-            return a == key && (i + 1 < argc);
+        auto next = [&](std::string &out) -> bool {
+            if (i + 1 >= argc) return false;
+            out = argv[++i];
+            return true;
         };
 
-        if (need("--model"))
-            o.model_path = argv[++i];
-        else if (need("--image"))
-            o.image_path = argv[++i];
-        else if (need("--out"))
-            o.out_path = argv[++i];
-        else if (need("--bin_thresh"))
-            o.bin_thresh = std::stof(argv[++i]);
-        else if (need("--box_thresh"))
-            o.box_thresh = std::stof(argv[++i]);
-        else if (need("--side"))
-            o.side = std::stoi(argv[++i]);
-        else if (need("--threads"))
-            o.ort_threads = std::stoi(argv[++i]);
-        else if (need("--unclip"))
-            o.unclip = std::stof(argv[++i]);
-        else if (need("--tiles"))
-            o.tiles_arg = argv[++i];
-        else if (need("--tile_overlap"))
-            o.tile_overlap = std::stof(argv[++i]);
-        else if (need("--nms_iou"))
-            o.nms_iou = std::stof(argv[++i]);
-        else if (need("--tile_omp"))
-            o.tile_omp_threads = std::stoi(argv[++i]);
-        else if (need("--apply_sigmoid"))
-            o.apply_sigmoid = std::stoi(argv[++i]);
-        else if (need("--omp_places"))
-            o.omp_places_cli = argv[++i];
-        else if (need("--omp_bind"))
-            o.omp_bind_cli = argv[++i];
-        else if (need("--bind_io"))
-            o.bind_io = std::stoi(argv[++i]);
-        else if (need("--fixed_hw"))
-            o.fixed_hw = argv[++i];
-        else if (need("--bench"))
-            o.bench_iters = std::stoi(argv[++i]);
-        else if (need("--warmup"))
-            o.warmup = std::stoi(argv[++i]);
-        else if (need("--no_draw"))
-            o.no_draw = std::stoi(argv[++i]);
-        else if (a == "-h" || a == "--help") {
-            usage(argv[0]);
-            return false;
-        }
-        else {
-            std::cerr << "Unknown arg: " << a << "\n";
-            usage(argv[0]);
-            return false;
+        if (a == "--model") { std::string v; if (!next(v)) return false; o.model_path = v; }
+        else if (a == "--image") { std::string v; if (!next(v)) return false; o.image_path = v; }
+        else if (a == "--out") { std::string v; if (!next(v)) return false; o.out_path = v; }
+        else if (a == "--bin_thresh") { std::string v; if (!next(v) || !parse_float(v, o.bin_thresh)) return false; }
+        else if (a == "--box_thresh") { std::string v; if (!next(v) || !parse_float(v, o.box_thresh)) return false; }
+        else if (a == "--unclip") { std::string v; if (!next(v) || !parse_float(v, o.unclip)) return false; }
+        else if (a == "--side") { std::string v; if (!next(v) || !parse_int(v, o.side)) return false; }
+        else if (a == "--threads") { std::string v; if (!next(v) || !parse_int(v, o.ort_threads)) return false; }
+        else if (a == "--tiles") { std::string v; if (!next(v)) return false; o.tiles_arg = v; }
+        else if (a == "--tile_overlap") { std::string v; if (!next(v) || !parse_float(v, o.tile_overlap)) return false; }
+        else if (a == "--tile_omp") { std::string v; if (!next(v) || !parse_int(v, o.tile_omp_threads)) return false; }
+        else if (a == "--nms_iou") { std::string v; if (!next(v) || !parse_float(v, o.nms_iou)) return false; }
+        else if (a == "--apply_sigmoid") { std::string v; if (!next(v) || !parse_int(v, o.apply_sigmoid)) return false; }
+        else if (a == "--omp_places") { std::string v; if (!next(v)) return false; o.omp_places_cli = v; }
+        else if (a == "--omp_bind") { std::string v; if (!next(v)) return false; o.omp_bind_cli = v; }
+        else if (a == "--bind_io") { std::string v; if (!next(v) || !parse_int(v, o.bind_io)) return false; }
+        else if (a == "--fixed_hw") { std::string v; if (!next(v)) return false; o.fixed_hw = v; }
+        else if (a == "--bench") { std::string v; if (!next(v) || !parse_int(v, o.bench_iters)) return false; }
+        else if (a == "--warmup") { std::string v; if (!next(v) || !parse_int(v, o.warmup)) return false; }
+        else if (a == "--no_draw") { o.no_draw = 1; }
+        else { 
+            std::cerr << "Unknown arg: " << a << "\n"; 
+            return false; 
         }
     }
 
-    auto clampf = [](float v, float lo, float hi) {
-        return std::max(lo, std::min(hi, v));
-    };
-
-    o.bin_thresh = clampf(o.bin_thresh, 0.f, 1.f);
-    o.box_thresh = clampf(o.box_thresh, 0.f, 1.f);
-
-    if (o.tile_overlap < 0.f)
-        o.tile_overlap = 0.f;
-    if (o.tile_overlap > 0.5f)
-        o.tile_overlap = 0.5f;
-    if (o.nms_iou < 0.f)
-        o.nms_iou = 0.f;
-    if (o.nms_iou > 1.f)
-        o.nms_iou = 1.f;
-    if (o.side < 32)
-        o.side = 32;
+    if (o.model_path.empty() || o.image_path.empty())
+        return false;
 
     if (!o.fixed_hw.empty()) {
         size_t pos = o.fixed_hw.find_first_of("xX*");
         if (pos == std::string::npos) {
-            std::cerr << "Bad --fixed_hw format. Use WxH.\n";
+            std::cerr << "Bad --fixed_hw format. Use WxH\n";
             return false;
         }
         try {
@@ -106,16 +91,26 @@ bool parse_cli(int argc, char **argv, Options &o) {
             o.fixedH = std::stoi(o.fixed_hw.substr(pos + 1));
         }
         catch (...) {
-            std::cerr << "Bad --fixed_hw numbers.\n";
+            std::cerr << "Bad --fixed_hw numbers\n";
             return false;
         }
         if (o.fixedW < 32 || o.fixedH < 32) {
-            std::cerr << "--fixed_hw too small.\n";
+            std::cerr << "Parameter values of --fixed_hw are too small (<32)\n";
             return false;
         }
         o.fixedW = (o.fixedW + 31) / 32 * 32;
         o.fixedH = (o.fixedH + 31) / 32 * 32;
     }
+
+    auto clampf = [](float v, float lo, float hi) { return std::max(lo, std::min(hi, v)); };
+
+    o.bin_thresh = clampf(o.bin_thresh, 0.f, 1.f);
+    o.box_thresh = clampf(o.box_thresh, 0.f, 1.f);
+    o.nms_iou = clampf(o.nms_iou, 0.f, 1.f);
+    o.tile_overlap = clampf(o.tile_overlap, 0.f, 0.5f);
+
+    if (o.side < 32)
+        o.side = 32;
 
     return true;
 }

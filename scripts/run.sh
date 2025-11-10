@@ -10,9 +10,9 @@ if ! ls ./build/text_det 1> /dev/null 2>&1; then
 fi
 
 ./build/text_det \
-    --model ./models/ch_PP-OCRv2_det.onnx \
+    --model ./models/ch_PP-OCRv4_det.onnx \
     --image ./images/test.jpg \
     --threads 4 \
-    --side 960 \
+    --side 640 \
     --bin_thresh 0.3 \
     --box_thresh 0.3 
